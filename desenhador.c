@@ -9,6 +9,7 @@ typedef enum {
 	STARTING,
 	PAINTING,
 	DRAWING_LINE,
+	DRAWING_SQUARE,
 	IDLE,
 	MOVING,
 	SAVING,
@@ -37,16 +38,31 @@ typedef struct {
 } PRects;
 
 typedef struct {
+	SDL_FRect area;
+	SDL_FColor color;
+} DSquare;
+
+typedef struct {
+	DSquare* squares;
+	size_t size;
+} DSquares;
+
+typedef struct {
+	float x, y;
+} FPoint;
+
+typedef struct {
 	PStatus status;
 	PCPointsArray points;
 	PRects rects;
-	SDL_Point reference;
+	DSquares squares;
+	FPoint reference;
 	SDL_FColor using_color;
 } Painteru;
 
 static SDL_FColor color_palette[9];
 
-static void append_point(PCPointsArray* l, int x, int y, SDL_FColor color){
+static void append_point(PCPointsArray* l, float x, float y, SDL_FColor color){
 	SDL_FPoint r = { .x = x, .y = y };
 	PCPoint color_point = { .position = r, .color = color };
 	/* SDL_Log("color r:%f, g:%f b: %f a:%f \n", color.r, color.g, color.b, color.a); */
@@ -57,7 +73,7 @@ static void append_point(PCPointsArray* l, int x, int y, SDL_FColor color){
 	/* SDL_Log("current size %li \n", l->size); */
 }
 
-static void append_line(PRects* l, int sx, int sy, int ex, int ey, SDL_FColor color){
+static void append_line(PRects* l, float sx, float sy, int ex, int ey, SDL_FColor color){
 	SDL_FPoint start = {
 		.x = sx,
 		.y = sy
@@ -74,11 +90,11 @@ static void append_line(PRects* l, int sx, int sy, int ex, int ey, SDL_FColor co
 }
 
 /* static void RenderLines(PRects* rects){ */
-/* 	for(size_t i = 0; i < rects->size; i++){ */
-/* 		SDL_RenderLine(renderer, */
-/* 				rects->lines[i].start.x, rects->lines[i].start.y, */
-/* 				rects->lines[i].end.x, rects->lines[i].end.y); */
-/* 	} */
+/*	for(size_t i = 0; i < rects->size; i++){ */
+/*		SDL_RenderLine(renderer, */
+/*				rects->lines[i].start.x, rects->lines[i].start.y, */
+/*				rects->lines[i].end.x, rects->lines[i].end.y); */
+/*	} */
 /* } */
 
 static void handle_mouse_button_down(Painteru* p, SDL_MouseButtonEvent mouse){
@@ -116,7 +132,7 @@ static void draw_dots_with_color(PCPointsArray points){
 			points.rects[i].color.b,
 			points.rects[i].color.a
 		);
-		SDL_RenderPoint(renderer, 
+		SDL_RenderPoint(renderer,
 			points.rects[i].position.x,
 			points.rects[i].position.y
 		);
@@ -125,7 +141,7 @@ static void draw_dots_with_color(PCPointsArray points){
 
 /**
  *
- * black = rgb(69, 71, 90)	
+ * black = rgb(69, 71, 90)
  * red = rgb(243, 139, 168)
  * green = rgb(166, 227, 161)
  * yellow = rgb(249, 226, 175)
@@ -153,7 +169,7 @@ static void draw_color_selector(void){
 
 	SDL_FRect block = { .x = 0, .y = 0, .w = 50, .h = 50 };
 	for(short i = 0; i < 9; i++){
-		SDL_SetRenderDrawColor(renderer, 
+		SDL_SetRenderDrawColor(renderer,
 				color_palette[i].r,
 				color_palette[i].g,
 				color_palette[i].b,
@@ -171,7 +187,7 @@ static void draw_lines_with_color(PRects rects){
 			rects.lines[i].color.b,
 			rects.lines[i].color.a
 		);
-		SDL_RenderLine(renderer, 
+		SDL_RenderLine(renderer,
 			rects.lines[i].start.x,
 			rects.lines[i].start.y,
 			rects.lines[i].end.x,
@@ -180,8 +196,108 @@ static void draw_lines_with_color(PRects rects){
 	}
 }
 
-int main(int argc, char** argv){
+static void draw_squares_with_color(DSquares squares){
+	for(size_t i = 0; i < squares.size; i++){
+		SDL_SetRenderDrawColor(renderer,
+			squares.squares[i].color.r,
+			squares.squares[i].color.g,
+			squares.squares[i].color.b,
+			squares.squares[i].color.a
+		);
+		SDL_FRect square_begin_drew = {
+			.x = squares.squares[i].area.x,
+			.y = squares.squares[i].area.y,
+			.w = squares.squares[i].area.w,
+			.h = squares.squares[i].area.h
+		};
+		SDL_RenderRect(renderer, &square_begin_drew);
+	}
+}
 
+float get_lower_float(float a, float b){
+	if(a < b){
+		return a;
+	} else {
+		return b;
+	}
+}
+
+float get_higher_float(float a, float b){
+	if(a > b){
+		return a;
+	} else {
+		return b;
+	}
+}
+
+static void append_square(DSquares* squares, FPoint reference, SDL_FColor color){
+	float mx, my;
+	SDL_GetMouseState(&mx, &my);
+
+	const float lx = get_lower_float(reference.x, mx);
+	const float ly = get_lower_float(reference.y, my);
+	const float hx = get_higher_float(reference.x, mx);
+	const float hy = get_higher_float(reference.y, my);
+	SDL_FRect reference_rect = {
+		.x = lx,
+		.y = ly,
+		.w = hx - lx,
+		.h = hy - ly
+	};
+	DSquare color_square = {
+		.area = reference_rect,
+		.color = color
+	};
+	squares->size++;
+	squares->squares = SDL_realloc(squares->squares, sizeof(DSquare)*squares->size);
+	squares->squares[squares->size -1] = color_square;
+}
+
+static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
+	switch(key.key){
+		case SDLK_S:
+			SDL_Log("status: %i\n", p->status);
+			if(p->status != DRAWING_SQUARE){
+				p->status = DRAWING_SQUARE;
+				float mx, my;
+				SDL_GetMouseState(&mx, &my);
+				p->reference.x = mx;
+				p->reference.y = my;
+			} else {
+				append_square(&p->squares, p->reference, p->using_color);
+				p->status = IDLE;
+			}
+			break;
+	}
+}
+
+static void draw_guide_square(FPoint p){
+			float mx, my;
+			SDL_GetMouseState(&mx, &my);
+			/* SDL_Log("mouse position %f, %f\n", mx, my); */
+			/* SDL_SetRenderDrawColor(renderer, */
+			/* 	p.using_color.r, */
+			/* 	p.using_color.g, */
+			/* 	p.using_color.b, */
+			/* 	SDL_ALPHA_OPAQUE */
+			/* ); */
+
+			const float lx = get_lower_float(p.x, mx);
+			const float ly = get_lower_float(p.y, my);
+			const float hx = get_higher_float(p.x, mx);
+			const float hy = get_higher_float(p.y, my);
+			/* SDL_Log("lower x %f\t lower y%f\n", lx, ly); */
+			/* SDL_Log("reference %f, %f\n", (float)p.reference.x, (float)p.reference.y); */
+			SDL_FRect reference_rect = {
+				.x = lx,
+				.y = ly,
+				.w = hx - lx,
+				.h = hy - ly
+				};
+			SDL_RenderRect(renderer, &reference_rect);
+}
+
+int main(int argc, char** argv){
 	(void)(argc);
 	(void)(argv);
 
@@ -195,7 +311,7 @@ int main(int argc, char** argv){
 	p.using_color = (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
 	bool done = false;
 	SDL_Event event;
-	int c_delay = SDL_floorf((1.0/TARGET_FPS)*1000);
+	int c_delay = SDL_floorf((1.0f/TARGET_FPS)*1000);
 	SDL_Log("delay set to: %i", c_delay);
 
 	while(!done){
@@ -203,7 +319,7 @@ int main(int argc, char** argv){
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
 		SDL_RenderClear(renderer);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
-	
+
 		if(SDL_PollEvent(&event)){
 			switch(event.type){
 				case SDL_EVENT_QUIT:
@@ -221,6 +337,9 @@ int main(int argc, char** argv){
 					}
 					break;
 
+				case SDL_EVENT_KEY_DOWN:
+					handle_key_pressed(&p, event.key);
+					break;
 			}
 			if(p.status == PAINTING){
 				append_point(&p.points, event.button.x, event.button.y, p.using_color);
@@ -239,11 +358,22 @@ int main(int argc, char** argv){
 			);
 			SDL_RenderLine(renderer, mx, my, p.reference.x, p.reference.y);
 		}
+
+		if(p.status == DRAWING_SQUARE){
+			SDL_SetRenderDrawColor(renderer,
+				p.using_color.r,
+				p.using_color.g,
+				p.using_color.b,
+				SDL_ALPHA_OPAQUE
+			);
+			draw_guide_square(p.reference);
+		}
 		draw_color_selector();
 		draw_dots_with_color(p.points);
 		draw_lines_with_color(p.rects);
+		draw_squares_with_color(p.squares);
 		/* SDL_RenderLine */
 		SDL_RenderPresent(renderer);
-	}
+		}
 	SDL_free(p.points.rects);
 }
