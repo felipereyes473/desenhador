@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 
 #define TARGET_FPS 120
+#define DOT_LINE_WIDTH 3
 
 SDL_Renderer *renderer = NULL;
 SDL_Window *window = NULL;
@@ -68,7 +69,7 @@ static void append_point(PCPointsArray* l, float x, float y, SDL_FColor color){
 	/* SDL_Log("color r:%f, g:%f b: %f a:%f \n", color.r, color.g, color.b, color.a); */
 
 	l->size++;
-	l->rects = SDL_realloc(l->rects, sizeof(PCPoint)*l->size);
+	l->rects = (PCPoint*)SDL_realloc(l->rects, sizeof(PCPoint)*l->size);
 	l->rects[l->size -1] = color_point;
 	/* SDL_Log("current size %li \n", l->size); */
 }
@@ -84,11 +85,11 @@ static void append_line(PRects* l, float sx, float sy, int ex, int ey, SDL_FColo
 	};
 	PRect nrect = { .start = start, .end = end, .color = color};
 	l->size++;
-	l->lines = SDL_realloc(l->lines, sizeof(PRect)*l->size);
+	l->lines = (PRect*)SDL_realloc(l->lines, sizeof(PRect)*l->size);
 	l->lines[l->size -1] = nrect;
-	/* SDL_Log("current size %li \n", l->size); */
 }
 
+/* \deprecated code */
 /* static void RenderLines(PRects* rects){ */
 /*	for(size_t i = 0; i < rects->size; i++){ */
 /*		SDL_RenderLine(renderer, */
@@ -99,7 +100,7 @@ static void append_line(PRects* l, float sx, float sy, int ex, int ey, SDL_FColo
 
 static void handle_mouse_button_down(Painteru* p, SDL_MouseButtonEvent mouse){
 	/* SDL_Log("status %i\n", p->status); */
-	static const int color_selector_x_range = 50*8;
+	static const int color_selector_x_range = 50*9;
 	static const int color_selector_y_range = 50;
 	if(mouse.x < color_selector_x_range && mouse.y < color_selector_y_range){
 		unsigned int color_index = (int)SDL_floorf(mouse.x / 50);
@@ -124,6 +125,16 @@ static void handle_mouse_button_down(Painteru* p, SDL_MouseButtonEvent mouse){
 	}
 }
 
+static void draw_circle_at(SDL_FPoint center, int radius){
+	for(int x = 0 - radius; x < radius*2; x++){
+		for(int y = 0 - radius; y < radius*2; y++){
+			if(x*x + y*y <= radius*radius){
+				SDL_RenderPoint(renderer, center.x+x, center.y+y);
+			}
+		}
+	}
+}
+
 static void draw_dots_with_color(PCPointsArray points){
 	for(size_t i = 0; i < points.size; i++){
 		SDL_SetRenderDrawColor(renderer,
@@ -132,6 +143,7 @@ static void draw_dots_with_color(PCPointsArray points){
 			points.rects[i].color.b,
 			points.rects[i].color.a
 		);
+		draw_circle_at(points.rects[i].position, DOT_LINE_WIDTH);
 		SDL_RenderPoint(renderer,
 			points.rects[i].position.x,
 			points.rects[i].position.y
@@ -234,29 +246,28 @@ static void append_square(DSquares* squares, FPoint reference, SDL_FColor color)
 	float mx, my;
 	SDL_GetMouseState(&mx, &my);
 
-	const float lx = get_lower_float(reference.x, mx);
-	const float ly = get_lower_float(reference.y, my);
-	const float hx = get_higher_float(reference.x, mx);
-	const float hy = get_higher_float(reference.y, my);
+	/* const float lx = get_lower_float(reference.x, mx); */
+	const float lx = reference.x > mx ? reference.x : mx;
+	const float ly = reference.y > my ? reference.y : my;
+	const float hx = reference.x < mx ? reference.x : mx;
+	const float hy = reference.y < my ? reference.y : my;
+
 	SDL_FRect reference_rect = {
 		.x = lx,
 		.y = ly,
 		.w = hx - lx,
-		.h = hy - ly
-	};
-	DSquare color_square = {
-		.area = reference_rect,
-		.color = color
-	};
+		.h = hy - ly };
+	DSquare color_square = { .area = reference_rect, .color = color };
+
 	squares->size++;
-	squares->squares = SDL_realloc(squares->squares, sizeof(DSquare)*squares->size);
+	squares->squares = (DSquare*)SDL_realloc(squares->squares, sizeof(DSquare)*squares->size);
 	squares->squares[squares->size -1] = color_square;
 }
 
 static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 	switch(key.key){
 		case SDLK_S:
-			SDL_Log("status: %i\n", p->status);
+			/* SDL_Log("status: %i\n", p->status); */
 			if(p->status != DRAWING_SQUARE){
 				p->status = DRAWING_SQUARE;
 				float mx, my;
@@ -282,10 +293,15 @@ static void draw_guide_square(FPoint p){
 			/* 	SDL_ALPHA_OPAQUE */
 			/* ); */
 
-			const float lx = get_lower_float(p.x, mx);
-			const float ly = get_lower_float(p.y, my);
-			const float hx = get_higher_float(p.x, mx);
-			const float hy = get_higher_float(p.y, my);
+			/* const float lx = get_lower_float(p.x, mx); */
+			/* const float ly = get_lower_float(p.y, my); */
+			/* const float hx = get_higher_float(p.x, mx); */
+			/* const float hy = get_higher_float(p.y, my); */
+
+			const float lx = p.x > mx ? p.x : mx;
+			const float ly = p.y > my ? p.y : my;
+			const float hx = p.x < mx ? p.x : mx;
+			const float hy = p.y < my ? p.y : my;
 			/* SDL_Log("lower x %f\t lower y%f\n", lx, ly); */
 			/* SDL_Log("reference %f, %f\n", (float)p.reference.x, (float)p.reference.y); */
 			SDL_FRect reference_rect = {
