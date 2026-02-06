@@ -320,7 +320,9 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 			}
 			break;
 		case SDLK_U:
-			p->objects.size--;
+			if(p->objects.size >= 1){
+				p->objects.size--;
+			}
 			break;
 		case SDLK_R:
 			if(p->objects.size_top > p->objects.size){
