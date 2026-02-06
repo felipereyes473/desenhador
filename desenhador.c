@@ -2,6 +2,7 @@
 
 #define TARGET_FPS 120
 #define DOT_LINE_WIDTH 3
+#define COLOR_DEFAULT (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
 
 SDL_Renderer *renderer = NULL;
 SDL_Window *window = NULL;
@@ -17,7 +18,14 @@ typedef enum {
 	QUIT
 } PStatus;
 
+typedef enum {
+	DOT,
+	RECT,
+	SQUARE
+} DrawingElementType;
+
 typedef struct {
+	DrawingElementType type;
 	SDL_FPoint position;
 	SDL_FColor color;
 } PCPoint;
@@ -28,6 +36,7 @@ typedef struct {
 } PCPointsArray;
 
 typedef struct {
+	DrawingElementType type;
 	SDL_FPoint start;
 	SDL_FPoint end;
 	SDL_FColor color;
@@ -39,6 +48,7 @@ typedef struct {
 } PRects;
 
 typedef struct {
+	DrawingElementType type;
 	SDL_FRect area;
 	SDL_FColor color;
 } DSquare;
@@ -52,29 +62,39 @@ typedef struct {
 	float x, y;
 } FPoint;
 
+typedef union {
+	DrawingElementType type;
+	PCPoint point;
+	DSquare square;
+	PRect rect;
+} DrawingObj;
+
+typedef struct {
+	DrawingObj *items;
+	size_t size;
+	size_t size_top;
+} DOArray;
+
 typedef struct {
 	PStatus status;
-	PCPointsArray points;
-	PRects rects;
-	DSquares squares;
+	/* PCPointsArray points; */
+	/* PRects rects; */
+	/* DSquares squares; */
+	DOArray objects;
 	FPoint reference;
 	SDL_FColor using_color;
 } Painteru;
 
 static SDL_FColor color_palette[9];
 
-static void append_point(PCPointsArray* l, float x, float y, SDL_FColor color){
-	SDL_FPoint r = { .x = x, .y = y };
-	PCPoint color_point = { .position = r, .color = color };
-	/* SDL_Log("color r:%f, g:%f b: %f a:%f \n", color.r, color.g, color.b, color.a); */
+DrawingObj get_point_drawing_obj(float x, float y){
 
-	l->size++;
-	l->rects = (PCPoint*)SDL_realloc(l->rects, sizeof(PCPoint)*l->size);
-	l->rects[l->size -1] = color_point;
-	/* SDL_Log("current size %li \n", l->size); */
+	PCPoint r = { .position = { .x = x, .y = y }};
+	DrawingObj n_obj = { .point = r };
+	return n_obj;
 }
 
-static void append_line(PRects* l, float sx, float sy, int ex, int ey, SDL_FColor color){
+DrawingObj get_line_drawing_obj(float sx, float sy, int ex, int ey){
 	SDL_FPoint start = {
 		.x = sx,
 		.y = sy
@@ -83,10 +103,16 @@ static void append_line(PRects* l, float sx, float sy, int ex, int ey, SDL_FColo
 		.x = ex,
 		.y = ey
 	};
-	PRect nrect = { .start = start, .end = end, .color = color};
-	l->size++;
-	l->lines = (PRect*)SDL_realloc(l->lines, sizeof(PRect)*l->size);
-	l->lines[l->size -1] = nrect;
+	PRect nrect = { .start = start, .end = end};
+	DrawingObj n_obj = { .rect = nrect};
+	return n_obj;
+}
+
+static void append_drawing_object(DOArray* list, DrawingObj new_element){
+	list->size++;
+	list->size_top++;
+	list->items = (DrawingObj*)SDL_realloc(list->items, sizeof(DrawingObj)*list->size);
+	list->items[list->size -1] = new_element;
 }
 
 /* \deprecated code */
@@ -113,7 +139,10 @@ static void handle_mouse_button_down(Painteru* p, SDL_MouseButtonEvent mouse){
 	}
 	if(SDL_BUTTON_RIGHT == mouse.button){
 		if(p->status == DRAWING_LINE){
-			append_line(&p->rects, p->reference.x, p->reference.y, mouse.x, mouse.y, p->using_color);
+			DrawingObj n_line = get_line_drawing_obj(p->reference.x, p->reference.y, mouse.x, mouse.y);
+			n_line.rect.color = p->using_color;
+			n_line.type = RECT;
+			append_drawing_object(&p->objects, n_line);
 			p->status = IDLE;
 		} else {
 			p->reference.x = mouse.x;
@@ -135,20 +164,18 @@ static void draw_circle_at(SDL_FPoint center, int radius){
 	}
 }
 
-static void draw_dots_with_color(PCPointsArray points){
-	for(size_t i = 0; i < points.size; i++){
+static void draw_dot_with_color(PCPoint point){
 		SDL_SetRenderDrawColor(renderer,
-			points.rects[i].color.r,
-			points.rects[i].color.g,
-			points.rects[i].color.b,
-			points.rects[i].color.a
+			point.color.r,
+			point.color.g,
+			point.color.b,
+			point.color.a
 		);
-		draw_circle_at(points.rects[i].position, DOT_LINE_WIDTH);
+		draw_circle_at(point.position, DOT_LINE_WIDTH);
 		SDL_RenderPoint(renderer,
-			points.rects[i].position.x,
-			points.rects[i].position.y
+			point.position.x,
+			point.position.y
 		);
-	}
 }
 
 /**
@@ -191,38 +218,50 @@ static void draw_color_selector(void){
 	}
 }
 
-static void draw_lines_with_color(PRects rects){
-	for(size_t i = 0; i < rects.size; i++){
+static void draw_line_with_color(PRect rect){
 		SDL_SetRenderDrawColor(renderer,
-			rects.lines[i].color.r,
-			rects.lines[i].color.g,
-			rects.lines[i].color.b,
-			rects.lines[i].color.a
+			rect.color.r,
+			rect.color.g,
+			rect.color.b,
+			rect.color.a
 		);
 		SDL_RenderLine(renderer,
-			rects.lines[i].start.x,
-			rects.lines[i].start.y,
-			rects.lines[i].end.x,
-			rects.lines[i].end.y
+			rect.start.x,
+			rect.start.y,
+			rect.end.x,
+			rect.end.y
 		);
-	}
 }
 
-static void draw_squares_with_color(DSquares squares){
-	for(size_t i = 0; i < squares.size; i++){
-		SDL_SetRenderDrawColor(renderer,
-			squares.squares[i].color.r,
-			squares.squares[i].color.g,
-			squares.squares[i].color.b,
-			squares.squares[i].color.a
-		);
-		SDL_FRect square_begin_drew = {
-			.x = squares.squares[i].area.x,
-			.y = squares.squares[i].area.y,
-			.w = squares.squares[i].area.w,
-			.h = squares.squares[i].area.h
-		};
-		SDL_RenderRect(renderer, &square_begin_drew);
+static void draw_square_with_color(DSquare square){
+	SDL_SetRenderDrawColor(renderer,
+		square.color.r,
+		square.color.g,
+		square.color.b,
+		square.color.a
+	);
+	SDL_FRect square_begin_drew = {
+		.x = square.area.x,
+		.y = square.area.y,
+		.w = square.area.w,
+		.h = square.area.h
+	};
+	SDL_RenderRect(renderer, &square_begin_drew);
+}
+
+static void draw_elements(DOArray elements){
+	for(size_t i = 0; i < elements.size; i++){
+		switch(elements.items[i].type){
+			case DOT:
+				draw_dot_with_color(elements.items[i].point);
+				break;
+			case RECT:
+				draw_line_with_color(elements.items[i].rect);
+				break;
+			case SQUARE:
+				draw_square_with_color(elements.items[i].square);
+				break;
+		}
 	}
 }
 
@@ -242,7 +281,7 @@ float get_higher_float(float a, float b){
 	}
 }
 
-static void append_square(DSquares* squares, FPoint reference, SDL_FColor color){
+DrawingObj get_square_drawing_obj(FPoint reference){
 	float mx, my;
 	SDL_GetMouseState(&mx, &my);
 
@@ -256,18 +295,16 @@ static void append_square(DSquares* squares, FPoint reference, SDL_FColor color)
 		.x = lx,
 		.y = ly,
 		.w = hx - lx,
-		.h = hy - ly };
-	DSquare color_square = { .area = reference_rect, .color = color };
+		.h = hy - ly
+	};
+	DrawingObj n_square = { .square = { .area = reference_rect }};
+	return n_square;
 
-	squares->size++;
-	squares->squares = (DSquare*)SDL_realloc(squares->squares, sizeof(DSquare)*squares->size);
-	squares->squares[squares->size -1] = color_square;
 }
 
 static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 	switch(key.key){
 		case SDLK_S:
-			/* SDL_Log("status: %i\n", p->status); */
 			if(p->status != DRAWING_SQUARE){
 				p->status = DRAWING_SQUARE;
 				float mx, my;
@@ -275,9 +312,23 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 				p->reference.x = mx;
 				p->reference.y = my;
 			} else {
-				append_square(&p->squares, p->reference, p->using_color);
+				DrawingObj n_square = get_square_drawing_obj(p->reference);
+				n_square.square.color = p->using_color;
+				n_square.type = SQUARE;
+				append_drawing_object(&p->objects, n_square);
 				p->status = IDLE;
 			}
+			break;
+		case SDLK_U:
+			p->objects.size--;
+			break;
+		case SDLK_R:
+			if(p->objects.size_top > p->objects.size){
+				p->objects.size++;
+			}
+			/* else { */
+			/* 	SDL_Log("reached higher history re-do\n"); */
+			/* } */
 			break;
 	}
 }
@@ -285,25 +336,12 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 static void draw_guide_square(FPoint p){
 			float mx, my;
 			SDL_GetMouseState(&mx, &my);
-			/* SDL_Log("mouse position %f, %f\n", mx, my); */
-			/* SDL_SetRenderDrawColor(renderer, */
-			/* 	p.using_color.r, */
-			/* 	p.using_color.g, */
-			/* 	p.using_color.b, */
-			/* 	SDL_ALPHA_OPAQUE */
-			/* ); */
-
-			/* const float lx = get_lower_float(p.x, mx); */
-			/* const float ly = get_lower_float(p.y, my); */
-			/* const float hx = get_higher_float(p.x, mx); */
-			/* const float hy = get_higher_float(p.y, my); */
 
 			const float lx = p.x > mx ? p.x : mx;
 			const float ly = p.y > my ? p.y : my;
 			const float hx = p.x < mx ? p.x : mx;
 			const float hy = p.y < my ? p.y : my;
-			/* SDL_Log("lower x %f\t lower y%f\n", lx, ly); */
-			/* SDL_Log("reference %f, %f\n", (float)p.reference.x, (float)p.reference.y); */
+
 			SDL_FRect reference_rect = {
 				.x = lx,
 				.y = ly,
@@ -322,9 +360,8 @@ int main(int argc, char** argv){
 	}
 
 	Painteru p = { .status = STARTING };
-	p.points.size = 0;
 	init_color_palette();
-	p.using_color = (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
+	p.using_color = COLOR_DEFAULT;
 	bool done = false;
 	SDL_Event event;
 	int c_delay = SDL_floorf((1.0f/TARGET_FPS)*1000);
@@ -348,7 +385,10 @@ int main(int argc, char** argv){
 
 				case SDL_EVENT_MOUSE_BUTTON_UP:
 					if(p.status == PAINTING){
-						append_point(&p.points, event.button.x, event.button.y, p.using_color);
+						DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
+						n_point.point.color = p.using_color;
+						n_point.type = DOT;
+						append_drawing_object(&p.objects, n_point);
 						p.status = IDLE;
 					}
 					break;
@@ -358,7 +398,10 @@ int main(int argc, char** argv){
 					break;
 			}
 			if(p.status == PAINTING){
-				append_point(&p.points, event.button.x, event.button.y, p.using_color);
+				DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
+				n_point.point.color = p.using_color;
+				n_point.type = DOT;
+				append_drawing_object(&p.objects, n_point);
 			}
 		}
 
@@ -385,11 +428,12 @@ int main(int argc, char** argv){
 			draw_guide_square(p.reference);
 		}
 		draw_color_selector();
-		draw_dots_with_color(p.points);
-		draw_lines_with_color(p.rects);
-		draw_squares_with_color(p.squares);
+		draw_elements(p.objects);
+		/* draw_dots_with_color(p.points); */
+		/* draw_lines_with_color(p.rects); */
+		/* draw_squares_with_color(p.squares); */
 		/* SDL_RenderLine */
 		SDL_RenderPresent(renderer);
 		}
-	SDL_free(p.points.rects);
+	SDL_free(p.objects.items);
 }
