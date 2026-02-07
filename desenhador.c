@@ -110,7 +110,7 @@ DrawingObj get_line_drawing_obj(float sx, float sy, int ex, int ey){
 
 static void append_drawing_object(DOArray* list, DrawingObj new_element){
 	list->size++;
-	list->size_top++;
+	list->size_top = list->size;
 	list->items = (DrawingObj*)SDL_realloc(list->items, sizeof(DrawingObj)*list->size);
 	list->items[list->size -1] = new_element;
 }
@@ -262,22 +262,6 @@ static void draw_elements(DOArray elements){
 				draw_square_with_color(elements.items[i].square);
 				break;
 		}
-	}
-}
-
-float get_lower_float(float a, float b){
-	if(a < b){
-		return a;
-	} else {
-		return b;
-	}
-}
-
-float get_higher_float(float a, float b){
-	if(a > b){
-		return a;
-	} else {
-		return b;
 	}
 }
 
