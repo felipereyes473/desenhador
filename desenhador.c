@@ -4,6 +4,16 @@
 #define DOT_LINE_WIDTH 3
 #define COLOR_DEFAULT (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
 
+#define BLACK_COLOR (SDL_FColor) { .r = 69,  .g = 71, .b = 90, .a = SDL_ALPHA_OPAQUE};
+#define RED_COLOR (SDL_FColor) { .r = 243, .g = 139, .b = 168, .a = SDL_ALPHA_OPAQUE};
+#define GREEN_COLOR (SDL_FColor) { .r = 166, .g = 227, .b = 161, .a = SDL_ALPHA_OPAQUE};
+#define YELLOW_COLOR (SDL_FColor) { .r = 249, .g = 226, .b = 175, .a = SDL_ALPHA_OPAQUE};
+#define BLUE_COLOR (SDL_FColor) { .r = 137, .g = 180, .b = 250, .a = SDL_ALPHA_OPAQUE};
+#define PINK_COLOR (SDL_FColor) { .r = 245, .g = 194, .b = 231, .a = SDL_ALPHA_OPAQUE};
+#define CYAN_COLOR (SDL_FColor) { .r = 148, .g = 226, .b = 213, .a = SDL_ALPHA_OPAQUE};
+#define GRAY_COLOR (SDL_FColor) { .r = 166, .g = 173, .b = 200, .a = SDL_ALPHA_OPAQUE};
+#define WHITE_COLOR (SDL_FColor) { .r = 255, .g = 255, .b = 255, .a = SDL_ALPHA_OPAQUE};
+
 SDL_Renderer *renderer = NULL;
 SDL_Window *window = NULL;
 
@@ -31,11 +41,6 @@ typedef struct {
 } PCPoint;
 
 typedef struct {
-	PCPoint *rects;
-	size_t size;
-} PCPointsArray;
-
-typedef struct {
 	DrawingElementType type;
 	SDL_FPoint start;
 	SDL_FPoint end;
@@ -43,24 +48,10 @@ typedef struct {
 } PRect;
 
 typedef struct {
-	PRect* lines;
-	size_t size;
-} PRects;
-
-typedef struct {
 	DrawingElementType type;
 	SDL_FRect area;
 	SDL_FColor color;
 } DSquare;
-
-typedef struct {
-	DSquare* squares;
-	size_t size;
-} DSquares;
-
-typedef struct {
-	float x, y;
-} FPoint;
 
 typedef union {
 	DrawingElementType type;
@@ -77,11 +68,8 @@ typedef struct {
 
 typedef struct {
 	PStatus status;
-	/* PCPointsArray points; */
-	/* PRects rects; */
-	/* DSquares squares; */
 	DOArray objects;
-	FPoint reference;
+	SDL_FPoint reference;
 	SDL_FColor using_color;
 } Painteru;
 
@@ -95,14 +83,10 @@ DrawingObj get_point_drawing_obj(float x, float y){
 }
 
 DrawingObj get_line_drawing_obj(float sx, float sy, int ex, int ey){
-	SDL_FPoint start = {
-		.x = sx,
-		.y = sy
-	};
-	SDL_FPoint end = {
-		.x = ex,
-		.y = ey
-	};
+
+	SDL_FPoint start = { .x = sx, .y = sy };
+	SDL_FPoint end = { .x = ex, .y = ey };
+
 	PRect nrect = { .start = start, .end = end};
 	DrawingObj n_obj = { .rect = nrect};
 	return n_obj;
@@ -192,15 +176,15 @@ static void draw_dot_with_color(PCPoint point){
  * */
 static void init_color_palette(void){
 
-	color_palette[0] = (SDL_FColor) { .r = 69,  .g = 71, .b = 90, .a = SDL_ALPHA_OPAQUE};
-	color_palette[1] = (SDL_FColor) { .r = 243, .g = 139, .b = 168, .a = SDL_ALPHA_OPAQUE};
-	color_palette[2] = (SDL_FColor) { .r = 166, .g = 227, .b = 161, .a = SDL_ALPHA_OPAQUE};
-	color_palette[3] = (SDL_FColor) { .r = 249, .g = 226, .b = 175, .a = SDL_ALPHA_OPAQUE};
-	color_palette[4] = (SDL_FColor) { .r = 137, .g = 180, .b = 250, .a = SDL_ALPHA_OPAQUE};
-	color_palette[5] = (SDL_FColor) { .r = 245, .g = 194, .b = 231, .a = SDL_ALPHA_OPAQUE};
-	color_palette[6] = (SDL_FColor) { .r = 148, .g = 226, .b = 213, .a = SDL_ALPHA_OPAQUE};
-	color_palette[7] = (SDL_FColor) { .r = 166, .g = 173, .b = 200, .a = SDL_ALPHA_OPAQUE};
-	color_palette[8] = (SDL_FColor) { .r = 255, .g = 255, .b = 255, .a = SDL_ALPHA_OPAQUE};
+	color_palette[0] = BLACK_COLOR;
+	color_palette[1] = RED_COLOR;
+	color_palette[2] = GREEN_COLOR;
+	color_palette[3] = YELLOW_COLOR;
+	color_palette[4] = BLUE_COLOR;
+	color_palette[5] = PINK_COLOR;
+	color_palette[6] = CYAN_COLOR;
+	color_palette[7] = GRAY_COLOR;
+	color_palette[8] = WHITE_COLOR;
 
 }
 
@@ -209,28 +193,28 @@ static void draw_color_selector(void){
 	SDL_FRect block = { .x = 0, .y = 0, .w = 50, .h = 50 };
 	for(short i = 0; i < 9; i++){
 		SDL_SetRenderDrawColor(renderer,
-				color_palette[i].r,
-				color_palette[i].g,
-				color_palette[i].b,
-				SDL_ALPHA_OPAQUE);
+			color_palette[i].r,
+			color_palette[i].g,
+			color_palette[i].b,
+			SDL_ALPHA_OPAQUE);
 		SDL_RenderFillRect(renderer, &block);
 		block.x += 50;
 	}
 }
 
 static void draw_line_with_color(PRect rect){
-		SDL_SetRenderDrawColor(renderer,
-			rect.color.r,
-			rect.color.g,
-			rect.color.b,
-			rect.color.a
-		);
-		SDL_RenderLine(renderer,
-			rect.start.x,
-			rect.start.y,
-			rect.end.x,
-			rect.end.y
-		);
+	SDL_SetRenderDrawColor(renderer,
+		rect.color.r,
+		rect.color.g,
+		rect.color.b,
+		rect.color.a
+	);
+	SDL_RenderLine(renderer,
+		rect.start.x,
+		rect.start.y,
+		rect.end.x,
+		rect.end.y
+	);
 }
 
 static void draw_square_with_color(DSquare square){
@@ -265,7 +249,7 @@ static void draw_elements(DOArray elements){
 	}
 }
 
-DrawingObj get_square_drawing_obj(FPoint reference){
+DrawingObj get_square_drawing_obj(SDL_FPoint reference){
 	float mx, my;
 	SDL_GetMouseState(&mx, &my);
 
@@ -293,8 +277,7 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 				p->status = DRAWING_SQUARE;
 				float mx, my;
 				SDL_GetMouseState(&mx, &my);
-				p->reference.x = mx;
-				p->reference.y = my;
+				p->reference =(SDL_FPoint) { .x = mx, .y = my};
 			} else {
 				DrawingObj n_square = get_square_drawing_obj(p->reference);
 				n_square.square.color = p->using_color;
@@ -319,22 +302,22 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 	}
 }
 
-static void draw_guide_square(FPoint p){
-			float mx, my;
-			SDL_GetMouseState(&mx, &my);
+static void draw_guide_square(SDL_FPoint p){
+	float mx, my;
+	SDL_GetMouseState(&mx, &my);
 
-			const float lx = p.x > mx ? p.x : mx;
-			const float ly = p.y > my ? p.y : my;
-			const float hx = p.x < mx ? p.x : mx;
-			const float hy = p.y < my ? p.y : my;
+	const float lx = p.x > mx ? p.x : mx;
+	const float ly = p.y > my ? p.y : my;
+	const float hx = p.x < mx ? p.x : mx;
+	const float hy = p.y < my ? p.y : my;
 
-			SDL_FRect reference_rect = {
-				.x = lx,
-				.y = ly,
-				.w = hx - lx,
-				.h = hy - ly
-				};
-			SDL_RenderRect(renderer, &reference_rect);
+	SDL_FRect reference_rect = {
+		.x = lx,
+		.y = ly,
+		.w = hx - lx,
+		.h = hy - ly
+		};
+	SDL_RenderRect(renderer, &reference_rect);
 }
 
 int main(int argc, char** argv){
@@ -351,7 +334,7 @@ int main(int argc, char** argv){
 	bool done = false;
 	SDL_Event event;
 	int c_delay = SDL_floorf((1.0f/TARGET_FPS)*1000);
-	SDL_Log("delay set to: %i", c_delay);
+	SDL_Log("[INFO] delay set to: %i", c_delay);
 
 	while(!done){
 		SDL_Delay(c_delay);
