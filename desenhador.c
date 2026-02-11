@@ -3,6 +3,7 @@
 #define TARGET_FPS 120
 #define DOT_LINE_WIDTH 3
 #define COLOR_DEFAULT (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
+#define COLOR_PURE_BLACK (SDL_FColor){ .r = 0, .g = 0, .b = 0, .a = 0 };
 
 #define BLACK_COLOR (SDL_FColor) { .r = 69,  .g = 71, .b = 90, .a = SDL_ALPHA_OPAQUE};
 #define RED_COLOR (SDL_FColor) { .r = 243, .g = 139, .b = 168, .a = SDL_ALPHA_OPAQUE};
@@ -70,7 +71,9 @@ typedef struct {
 	PStatus status;
 	DOArray objects;
 	SDL_FPoint reference;
-	SDL_FColor using_color;
+	SDL_FColor foreground;
+	SDL_FColor background;
+	bool is_light_mode;
 } Painteru;
 
 static SDL_FColor color_palette[9];
@@ -115,16 +118,16 @@ static void handle_mouse_button_down(Painteru* p, SDL_MouseButtonEvent mouse){
 	if(mouse.x < color_selector_x_range && mouse.y < color_selector_y_range){
 		unsigned int color_index = (int)SDL_floorf(mouse.x / 50);
 		/* SDL_Log("color selector pressed, index: %i\n", color_index); */
-		p->using_color.r = color_palette[color_index].r;
-		p->using_color.g = color_palette[color_index].g;
-		p->using_color.b = color_palette[color_index].b;
-		p->using_color.a = color_palette[color_index].a;
+		p->foreground.r = color_palette[color_index].r;
+		p->foreground.g = color_palette[color_index].g;
+		p->foreground.b = color_palette[color_index].b;
+		p->foreground.a = color_palette[color_index].a;
 		return;
 	}
 	if(SDL_BUTTON_RIGHT == mouse.button){
 		if(p->status == DRAWING_LINE){
 			DrawingObj n_line = get_line_drawing_obj(p->reference.x, p->reference.y, mouse.x, mouse.y);
-			n_line.rect.color = p->using_color;
+			n_line.rect.color = p->foreground;
 			n_line.type = RECT;
 			append_drawing_object(&p->objects, n_line);
 			p->status = IDLE;
@@ -269,6 +272,20 @@ DrawingObj get_square_drawing_obj(SDL_FPoint reference){
 	return n_square;
 
 }
+static void set_background_color(Painteru* p){
+	if(p->is_light_mode){
+		p->background = COLOR_DEFAULT;
+		p->foreground = BLACK_COLOR;
+	} else {
+		p->foreground = COLOR_DEFAULT;
+		p->background = COLOR_PURE_BLACK;
+	}
+}
+
+static void toggle_theme_mode(Painteru* p){
+	p->is_light_mode = !p->is_light_mode;
+	set_background_color(p);
+}
 
 static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 	switch(key.key){
@@ -280,7 +297,7 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 				p->reference =(SDL_FPoint) { .x = mx, .y = my};
 			} else {
 				DrawingObj n_square = get_square_drawing_obj(p->reference);
-				n_square.square.color = p->using_color;
+				n_square.square.color = p->foreground;
 				n_square.type = SQUARE;
 				append_drawing_object(&p->objects, n_square);
 				p->status = IDLE;
@@ -295,9 +312,9 @@ static void handle_key_pressed(Painteru* p, SDL_KeyboardEvent key){
 			if(p->objects.size_top > p->objects.size){
 				p->objects.size++;
 			}
-			/* else { */
-			/* 	SDL_Log("reached higher history re-do\n"); */
-			/* } */
+			break;
+		case SDLK_M:
+			toggle_theme_mode(p);
 			break;
 	}
 }
@@ -320,25 +337,39 @@ static void draw_guide_square(SDL_FPoint p){
 	SDL_RenderRect(renderer, &reference_rect);
 }
 
-int main(int argc, char** argv){
-	(void)(argc);
-	(void)(argv);
+static void handle_flags(Painteru* p, int count, char** args){
+	for(int i = 0; i < count; i++){
+		if(SDL_strcmp(args[i], "-l") == 0){
+			p->is_light_mode = true;
+		}
+		if(SDL_strcmp(args[i], "--light-mode") == 0){
+			p->is_light_mode = true;
+		}
+	}
+}
 
+static void create_window(void){
 	if(!SDL_CreateWindowAndRenderer("desenhador", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)){
 		SDL_Log("não ci pode crear o ventaninha");
 	}
-
-	Painteru p = { .status = STARTING };
+}
+int main(int argc, char** argv){
+	
+	create_window();
 	init_color_palette();
-	p.using_color = COLOR_DEFAULT;
+	
+	Painteru p = { .status = STARTING };
+	handle_flags(&p, argc, argv);
+	set_background_color(&p);
+	
 	bool done = false;
-	SDL_Event event;
 	int c_delay = SDL_floorf((1.0f/TARGET_FPS)*1000);
 	SDL_Log("[INFO] delay set to: %i", c_delay);
+	SDL_Event event;
 
 	while(!done){
 		SDL_Delay(c_delay);
-		SDL_SetRenderDrawColor(renderer, 0, 0, 0, SDL_ALPHA_OPAQUE);
+		SDL_SetRenderDrawColor(renderer, p.background.r, p.background.g, p.background.b, SDL_ALPHA_OPAQUE);
 		SDL_RenderClear(renderer);
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
@@ -355,7 +386,7 @@ int main(int argc, char** argv){
 				case SDL_EVENT_MOUSE_BUTTON_UP:
 					if(p.status == PAINTING){
 						DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
-						n_point.point.color = p.using_color;
+						n_point.point.color = p.foreground;
 						n_point.type = DOT;
 						append_drawing_object(&p.objects, n_point);
 						p.status = IDLE;
@@ -368,7 +399,7 @@ int main(int argc, char** argv){
 			}
 			if(p.status == PAINTING){
 				DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
-				n_point.point.color = p.using_color;
+				n_point.point.color = p.foreground;
 				n_point.type = DOT;
 				append_drawing_object(&p.objects, n_point);
 			}
@@ -379,9 +410,9 @@ int main(int argc, char** argv){
 			SDL_GetMouseState(&mx, &my);
 			/* SDL_Log("mouse position %f, %f\n", mx, my); */
 			SDL_SetRenderDrawColor(renderer,
-				p.using_color.r,
-				p.using_color.g,
-				p.using_color.b,
+				p.foreground.r,
+				p.foreground.g,
+				p.foreground.b,
 				SDL_ALPHA_OPAQUE
 			);
 			SDL_RenderLine(renderer, mx, my, p.reference.x, p.reference.y);
@@ -389,9 +420,9 @@ int main(int argc, char** argv){
 
 		if(p.status == DRAWING_SQUARE){
 			SDL_SetRenderDrawColor(renderer,
-				p.using_color.r,
-				p.using_color.g,
-				p.using_color.b,
+				p.foreground.r,
+				p.foreground.g,
+				p.foreground.b,
 				SDL_ALPHA_OPAQUE
 			);
 			draw_guide_square(p.reference);
