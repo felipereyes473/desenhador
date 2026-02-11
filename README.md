@@ -8,3 +8,4 @@ A drawing tool based on SDL3, it uses catppuccin[https://catppuccin.com/] as col
 * mouse right click to start a new straight line
 * use _S_ key to start drawing a square
 * use _U_ to undo and _R_ to re-do 
+* use _M_ to change background color 

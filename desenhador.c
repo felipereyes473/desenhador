@@ -13,7 +13,7 @@
 #define PINK_COLOR (SDL_FColor) { .r = 245, .g = 194, .b = 231, .a = SDL_ALPHA_OPAQUE};
 #define CYAN_COLOR (SDL_FColor) { .r = 148, .g = 226, .b = 213, .a = SDL_ALPHA_OPAQUE};
 #define GRAY_COLOR (SDL_FColor) { .r = 166, .g = 173, .b = 200, .a = SDL_ALPHA_OPAQUE};
-#define WHITE_COLOR (SDL_FColor) { .r = 255, .g = 255, .b = 255, .a = SDL_ALPHA_OPAQUE};
+#define WHITE_COLOR (SDL_FColor) { .r = 239, .g = 241, .b = 245, .a = SDL_ALPHA_OPAQUE};
 
 SDL_Renderer *renderer = NULL;
 SDL_Window *window = NULL;
@@ -351,6 +351,7 @@ static void handle_flags(Painteru* p, int count, char** args){
 static void create_window(void){
 	if(!SDL_CreateWindowAndRenderer("desenhador", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)){
 		SDL_Log("não ci pode crear o ventaninha");
+		SDL_Quit();
 	}
 }
 int main(int argc, char** argv){
