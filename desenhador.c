@@ -431,6 +431,8 @@ int main(int argc, char** argv){
 						n_point.point.color = p.foreground;
 						n_point.type = DOT;
 						append_drawing_object(&p.objects, n_point);
+					} else {
+						continue;
 					}
 					break;
 
