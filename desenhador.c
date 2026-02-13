@@ -432,7 +432,7 @@ int main(int argc, char** argv){
 						n_point.type = DOT;
 						append_drawing_object(&p.objects, n_point);
 					} else {
-						continue;
+						if(IDLE == p.status) continue;
 					}
 					break;
 
