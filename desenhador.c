@@ -152,17 +152,17 @@ static void draw_circle_at(SDL_FPoint center, int radius){
 }
 
 static void draw_dot_with_color(PCPoint point){
-		SDL_SetRenderDrawColor(renderer,
-			point.color.r,
-			point.color.g,
-			point.color.b,
-			point.color.a
-		);
-		draw_circle_at(point.position, DOT_LINE_WIDTH);
-		SDL_RenderPoint(renderer,
-			point.position.x,
-			point.position.y
-		);
+	SDL_SetRenderDrawColor(renderer,
+		point.color.r,
+		point.color.g,
+		point.color.b,
+		point.color.a
+	);
+	draw_circle_at(point.position, DOT_LINE_WIDTH);
+	SDL_RenderPoint(renderer,
+		point.position.x,
+		point.position.y
+	);
 }
 
 /**
@@ -270,14 +270,14 @@ DrawingObj get_square_drawing_obj(SDL_FPoint reference){
 	};
 	DrawingObj n_square = { .square = { .area = reference_rect }};
 	return n_square;
-
 }
+
 static void set_background_color(Painteru* p){
 	if(p->is_light_mode){
 		p->background = COLOR_DEFAULT;
 		p->foreground = BLACK_COLOR;
 	} else {
-		p->foreground = COLOR_DEFAULT;
+		p->foreground = WHITE_COLOR;
 		p->background = COLOR_PURE_BLACK;
 	}
 }
@@ -333,7 +333,7 @@ static void draw_guide_square(SDL_FPoint p){
 		.y = ly,
 		.w = hx - lx,
 		.h = hy - ly
-		};
+	};
 	SDL_RenderRect(renderer, &reference_rect);
 }
 
@@ -354,15 +354,46 @@ static void create_window(void){
 		SDL_Quit();
 	}
 }
+
+static void clear_background(SDL_FColor background){
+	SDL_SetRenderDrawColor(renderer, background.r, background.g, background.b, SDL_ALPHA_OPAQUE);
+	SDL_RenderClear(renderer);
+	/* SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE); */
+}
+
+static void draw_reference_guides(PStatus status, SDL_FPoint reference, SDL_FColor foreground){
+	if(status == DRAWING_LINE){
+		float mx, my;
+		SDL_GetMouseState(&mx, &my);
+		SDL_SetRenderDrawColor(renderer,
+				foreground.r,
+				foreground.g,
+				foreground.b,
+				SDL_ALPHA_OPAQUE
+				);
+		SDL_RenderLine(renderer, mx, my, reference.x, reference.y);
+	}
+
+	if(status == DRAWING_SQUARE){
+		SDL_SetRenderDrawColor(renderer,
+			foreground.r,
+			foreground.g,
+			foreground.b,
+			SDL_ALPHA_OPAQUE
+		);
+		draw_guide_square(reference);
+	}
+}
+
 int main(int argc, char** argv){
-	
+
 	create_window();
 	init_color_palette();
-	
+
 	Painteru p = { .status = STARTING };
 	handle_flags(&p, argc, argv);
 	set_background_color(&p);
-	
+
 	bool done = false;
 	int c_delay = SDL_floorf((1.0f/TARGET_FPS)*1000);
 	SDL_Log("[INFO] delay set to: %i", c_delay);
@@ -370,9 +401,6 @@ int main(int argc, char** argv){
 
 	while(!done){
 		SDL_Delay(c_delay);
-		SDL_SetRenderDrawColor(renderer, p.background.r, p.background.g, p.background.b, SDL_ALPHA_OPAQUE);
-		SDL_RenderClear(renderer);
-		SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE);
 
 		if(SDL_PollEvent(&event)){
 			switch(event.type){
@@ -393,48 +421,34 @@ int main(int argc, char** argv){
 						p.status = IDLE;
 					}
 					break;
-
 				case SDL_EVENT_KEY_DOWN:
 					handle_key_pressed(&p, event.key);
 					break;
-			}
-			if(p.status == PAINTING){
-				DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
-				n_point.point.color = p.foreground;
-				n_point.type = DOT;
-				append_drawing_object(&p.objects, n_point);
-			}
-		}
 
-		if(p.status == DRAWING_LINE){
-			float mx, my;
-			SDL_GetMouseState(&mx, &my);
-			/* SDL_Log("mouse position %f, %f\n", mx, my); */
-			SDL_SetRenderDrawColor(renderer,
-				p.foreground.r,
-				p.foreground.g,
-				p.foreground.b,
-				SDL_ALPHA_OPAQUE
-			);
-			SDL_RenderLine(renderer, mx, my, p.reference.x, p.reference.y);
-		}
+				case SDL_EVENT_MOUSE_MOTION:
+					if(p.status == PAINTING){
+						DrawingObj n_point = get_point_drawing_obj(event.button.x, event.button.y);
+						n_point.point.color = p.foreground;
+						n_point.type = DOT;
+						append_drawing_object(&p.objects, n_point);
+					}
+					break;
 
-		if(p.status == DRAWING_SQUARE){
-			SDL_SetRenderDrawColor(renderer,
-				p.foreground.r,
-				p.foreground.g,
-				p.foreground.b,
-				SDL_ALPHA_OPAQUE
-			);
-			draw_guide_square(p.reference);
+				default:
+					/* continue; */
+					break;
+			}
+
+			clear_background(p.background);
+			draw_reference_guides(p.status, p.reference, p.foreground);
+			draw_color_selector();
+			draw_elements(p.objects);
+			SDL_RenderPresent(renderer);
 		}
-		draw_color_selector();
-		draw_elements(p.objects);
 		/* draw_dots_with_color(p.points); */
 		/* draw_lines_with_color(p.rects); */
 		/* draw_squares_with_color(p.squares); */
 		/* SDL_RenderLine */
-		SDL_RenderPresent(renderer);
-		}
+	}
 	SDL_free(p.objects.items);
 }
