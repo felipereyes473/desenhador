@@ -2,8 +2,11 @@
 
 #define TARGET_FPS 120
 #define DOT_LINE_WIDTH 3
-#define COLOR_DEFAULT (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = 255 };
-#define COLOR_PURE_BLACK (SDL_FColor){ .r = 0, .g = 0, .b = 0, .a = 0 };
+#define COLOR_DEFAULT (SDL_FColor){ .r = 255, .g = 255, .b = 255, .a = SDL_ALPHA_OPAQUE };
+#define COLOR_PURE_BLACK (SDL_FColor){ .r = 0, .g = 0, .b = 0, .a = SDL_ALPHA_OPAQUE };
+#define COLOR_TRANSPARENT_BG (SDL_FColor) { .r = 0, .g = 0, .b = 0, .a = SDL_ALPHA_TRANSPARENT}
+
+#define DEFAULT_ARRAY_CAPACITY 350
 
 #define BLACK_COLOR (SDL_FColor) { .r = 69,  .g = 71, .b = 90, .a = SDL_ALPHA_OPAQUE};
 #define RED_COLOR (SDL_FColor) { .r = 243, .g = 139, .b = 168, .a = SDL_ALPHA_OPAQUE};
@@ -65,6 +68,7 @@ typedef struct {
 	DrawingObj *items;
 	size_t size;
 	size_t size_top;
+	size_t capacity;
 } DOArray;
 
 typedef struct {
@@ -74,6 +78,7 @@ typedef struct {
 	SDL_FColor foreground;
 	SDL_FColor background;
 	bool is_light_mode;
+	bool transparent;
 } Painteru;
 
 static SDL_FColor color_palette[9];
@@ -98,7 +103,10 @@ DrawingObj get_line_drawing_obj(float sx, float sy, int ex, int ey){
 static void append_drawing_object(DOArray* list, DrawingObj new_element){
 	list->size++;
 	list->size_top = list->size;
-	list->items = (DrawingObj*)SDL_realloc(list->items, sizeof(DrawingObj)*list->size);
+	if(list->size >= list->capacity){
+		list->capacity = SDL_floorf(list->capacity*1.25);
+		list->items = (DrawingObj*)SDL_realloc(list->items, sizeof(DrawingObj)*list->capacity);
+	}
 	list->items[list->size -1] = new_element;
 }
 
@@ -280,6 +288,10 @@ static void set_background_color(Painteru* p){
 		p->foreground = WHITE_COLOR;
 		p->background = COLOR_PURE_BLACK;
 	}
+	if(p->transparent){
+		/* SDL_Log("transparent bg"); */
+		p->background = COLOR_TRANSPARENT_BG;
+	}
 }
 
 static void toggle_theme_mode(Painteru* p){
@@ -345,18 +357,24 @@ static void handle_flags(Painteru* p, int count, char** args){
 		if(SDL_strcmp(args[i], "--light-mode") == 0){
 			p->is_light_mode = true;
 		}
+		if(SDL_strcmp(args[i], "--transparent") == 0){
+			p->transparent = true;
+		}
+		if(SDL_strcmp(args[i], "-t") == 0){
+			p->transparent = true;
+		}
 	}
 }
 
 static void create_window(void){
-	if(!SDL_CreateWindowAndRenderer("desenhador", 800, 600, SDL_WINDOW_RESIZABLE, &window, &renderer)){
+	if(!SDL_CreateWindowAndRenderer("desenhador", 800, 600, SDL_WINDOW_RESIZABLE | SDL_WINDOW_TRANSPARENT, &window, &renderer)){
 		SDL_Log("não ci pode crear o ventaninha");
 		SDL_Quit();
 	}
 }
 
 static void clear_background(SDL_FColor background){
-	SDL_SetRenderDrawColor(renderer, background.r, background.g, background.b, SDL_ALPHA_OPAQUE);
+	SDL_SetRenderDrawColor(renderer, background.r, background.g, background.b, background.a);
 	SDL_RenderClear(renderer);
 	/* SDL_SetRenderDrawColor(renderer, 255, 255, 255, SDL_ALPHA_OPAQUE); */
 }
@@ -390,7 +408,9 @@ int main(int argc, char** argv){
 	create_window();
 	init_color_palette();
 
-	Painteru p = { .status = STARTING };
+	Painteru p = { .status = STARTING, .transparent = false};
+	p.objects.capacity = DEFAULT_ARRAY_CAPACITY;
+	p.objects.items = (DrawingObj*)SDL_malloc(sizeof(DrawingObj)*DEFAULT_ARRAY_CAPACITY);
 	handle_flags(&p, argc, argv);
 	set_background_color(&p);
 
