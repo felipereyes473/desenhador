@@ -431,8 +431,7 @@ void show_help_message(void){
 
 int main(int argc, char** argv){
 
-	create_window();
-	init_color_palette();
+
 
 	Painteru p = { .status = STARTING, .transparent = false};
 	p.objects.capacity = DEFAULT_ARRAY_CAPACITY;
@@ -442,6 +441,8 @@ int main(int argc, char** argv){
 		show_help_message();
 		return 0;
 	}
+	create_window();
+	init_color_palette();
 	set_background_color(&p);
 
 	bool done = false;
