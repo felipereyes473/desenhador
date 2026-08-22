@@ -78,6 +78,7 @@ typedef struct {
 	SDL_FColor foreground;
 	SDL_FColor background;
 	bool is_light_mode;
+	bool display_help_message;
 	bool transparent;
 } Painteru;
 
@@ -351,6 +352,15 @@ static void draw_guide_square(SDL_FPoint p){
 
 static void handle_flags(Painteru* p, int count, char** args){
 	for(int i = 0; i < count; i++){
+		if(SDL_strcmp(args[i], "-?") == 0){
+			p->display_help_message = true;
+		}
+		if(SDL_strcmp(args[i], "-h") == 0){
+			p->display_help_message = true;
+		}
+		if(SDL_strcmp(args[i], "--help") == 0){
+			p->display_help_message = true;
+		}
 		if(SDL_strcmp(args[i], "-l") == 0){
 			p->is_light_mode = true;
 		}
@@ -403,6 +413,17 @@ static void draw_reference_guides(PStatus status, SDL_FPoint reference, SDL_FCol
 	}
 }
 
+/*
+ * --help or -h for help message
+ * */
+void show_help_message(void){
+	SDL_Log("Desenhador ( .-.)");
+	SDL_Log("Usage: desenhador [OPTION...]");
+	SDL_Log("\t-t\t--transparent\t\tset this to transparent background");
+	SDL_Log("\t-l\t--light-mode\t\tuse this to white background");
+	SDL_Log("\t-h\t--help\t-?\t\tdisplay this help message");
+}
+
 int main(int argc, char** argv){
 
 	create_window();
@@ -412,6 +433,10 @@ int main(int argc, char** argv){
 	p.objects.capacity = DEFAULT_ARRAY_CAPACITY;
 	p.objects.items = (DrawingObj*)SDL_malloc(sizeof(DrawingObj)*DEFAULT_ARRAY_CAPACITY);
 	handle_flags(&p, argc, argv);
+	if(p.display_help_message){
+		show_help_message();
+		return 0;
+	}
 	set_background_color(&p);
 
 	bool done = false;
