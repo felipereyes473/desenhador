@@ -422,6 +422,11 @@ void show_help_message(void){
 	SDL_Log("\t-t\t--transparent\t\tset this to transparent background");
 	SDL_Log("\t-l\t--light-mode\t\tuse this to white background");
 	SDL_Log("\t-h\t--help\t-?\t\tdisplay this help message");
+	SDL_Log("Key-Binds on use:");
+	SDL_Log("\tu\t\t\tundo");
+	SDL_Log("\tr\t\t\tredo");
+	SDL_Log("\ts\t\t\tstart drawing a square");
+	SDL_Log("\tmouse-right-click\tstart drawing straight line");
 }
 
 int main(int argc, char** argv){
